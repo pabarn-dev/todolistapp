@@ -6,9 +6,21 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useState,
   type ReactNode,
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth';
 import type {
   Todo,
   TodoFilters,
@@ -22,8 +34,8 @@ import type {
 
 // Actions
 type TodoAction =
-  | { type: 'ADD_TODO'; payload: TodoFormData }
-  | { type: 'UPDATE_TODO'; payload: { id: string; data: Partial<TodoFormData> } }
+  | { type: 'ADD_TODO'; payload: Todo }
+  | { type: 'UPDATE_TODO'; payload: { id: string; data: Partial<Todo> } }
   | { type: 'DELETE_TODO'; payload: string }
   | { type: 'SET_TODO_STATUS'; payload: { id: string; status: TodoStatus } }
   | { type: 'SET_TODOS'; payload: Todo[] }
@@ -56,17 +68,7 @@ const initialState: TodoState = {
 function todoReducer(state: TodoState, action: TodoAction): TodoState {
   switch (action.type) {
     case 'ADD_TODO': {
-      const newTodo: Todo = {
-        id: uuidv4(),
-        title: action.payload.title.trim(),
-        description: action.payload.description.trim() || undefined,
-        status: 'new',
-        priority: action.payload.priority,
-        tags: action.payload.tags,
-        createdAt: new Date().toISOString(),
-        dueDate: action.payload.dueDate || undefined,
-      };
-      return { ...state, todos: [newTodo, ...state.todos] };
+      return { ...state, todos: [action.payload, ...state.todos] };
     }
 
     case 'UPDATE_TODO': {
@@ -74,15 +76,7 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
         ...state,
         todos: state.todos.map((todo) =>
           todo.id === action.payload.id
-            ? {
-                ...todo,
-                title: action.payload.data.title?.trim() ?? todo.title,
-                description:
-                  action.payload.data.description?.trim() || todo.description,
-                priority: action.payload.data.priority ?? todo.priority,
-                tags: action.payload.data.tags ?? todo.tags,
-                dueDate: action.payload.data.dueDate ?? todo.dueDate,
-              }
+            ? { ...todo, ...action.payload.data }
             : todo
         ),
       };
@@ -164,80 +158,149 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
 interface TodoContextValue {
   todos: Todo[];
   filters: TodoFilters;
-  addTodo: (data: TodoFormData) => void;
-  updateTodo: (id: string, data: Partial<TodoFormData>) => void;
-  deleteTodo: (id: string) => void;
-  setTodoStatus: (id: string, status: TodoStatus) => void;
+  loading: boolean;
+  addTodo: (data: TodoFormData) => Promise<void>;
+  updateTodo: (id: string, data: Partial<TodoFormData>) => Promise<void>;
+  deleteTodo: (id: string) => Promise<void>;
+  setTodoStatus: (id: string, status: TodoStatus) => Promise<void>;
   setFilterStatus: (status: FilterStatus) => void;
   setFilterPriority: (priority: Priority | 'all') => void;
   setFilterTags: (tags: string[]) => void;
   setSearchQuery: (query: string) => void;
   setSort: (sortBy: SortBy, sortOrder: SortOrder) => void;
-  clearCompleted: () => void;
+  clearCompleted: () => Promise<void>;
 }
 
 export const TodoContext = createContext<TodoContextValue | null>(null);
-
-const STORAGE_KEY = 'todo-app-data';
-
-function loadFromStorage(): Todo[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed as Todo[];
-      }
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return [];
-}
-
-function saveToStorage(todos: Todo[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-  } catch {
-    // Ignore storage errors
-  }
-}
 
 interface TodoProviderProps {
   children: ReactNode;
 }
 
 export function TodoProvider({ children }: TodoProviderProps) {
+  const { user } = useAuth();
   const [state, dispatch] = useReducer(todoReducer, initialState);
+  const [loading, setLoading] = useState(true);
 
-  // Load from localStorage on mount
+  // Subscribe to Firestore todos
   useEffect(() => {
-    const savedTodos = loadFromStorage();
-    if (savedTodos.length > 0) {
-      dispatch({ type: 'SET_TODOS', payload: savedTodos });
+    if (!user) {
+      dispatch({ type: 'SET_TODOS', payload: [] });
+      setLoading(false);
+      return;
     }
-  }, []);
 
-  // Save to localStorage on todos change
-  useEffect(() => {
-    saveToStorage(state.todos);
-  }, [state.todos]);
+    setLoading(true);
+    const todosRef = collection(db, 'users', user.uid, 'todos');
+    const todosQuery = query(todosRef, orderBy('createdAt', 'desc'));
 
-  const addTodo = useCallback((data: TodoFormData) => {
-    dispatch({ type: 'ADD_TODO', payload: data });
-  }, []);
+    const unsubscribe = onSnapshot(
+      todosQuery,
+      (snapshot) => {
+        const todos: Todo[] = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            title: data.title,
+            description: data.description,
+            status: data.status || 'new',
+            priority: data.priority,
+            tags: data.tags || [],
+            createdAt: data.createdAt,
+            dueDate: data.dueDate,
+          } as Todo;
+        });
+        dispatch({ type: 'SET_TODOS', payload: todos });
+        setLoading(false);
+      },
+      () => {
+        setLoading(false);
+      }
+    );
 
-  const updateTodo = useCallback((id: string, data: Partial<TodoFormData>) => {
-    dispatch({ type: 'UPDATE_TODO', payload: { id, data } });
-  }, []);
+    return () => unsubscribe();
+  }, [user]);
 
-  const deleteTodo = useCallback((id: string) => {
-    dispatch({ type: 'DELETE_TODO', payload: id });
-  }, []);
+  const addTodo = useCallback(
+    async (data: TodoFormData) => {
+      if (!user) return;
 
-  const setTodoStatus = useCallback((id: string, status: TodoStatus) => {
-    dispatch({ type: 'SET_TODO_STATUS', payload: { id, status } });
-  }, []);
+      const todoId = uuidv4();
+      const todoData: Record<string, unknown> = {
+        id: todoId,
+        title: data.title.trim(),
+        status: 'new',
+        priority: data.priority,
+        tags: data.tags,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (data.description.trim()) {
+        todoData.description = data.description.trim();
+      }
+      if (data.dueDate) {
+        todoData.dueDate = data.dueDate;
+      }
+
+      const todoRef = doc(db, 'users', user.uid, 'todos', todoId);
+      await setDoc(todoRef, todoData);
+    },
+    [user]
+  );
+
+  const updateTodo = useCallback(
+    async (id: string, data: Partial<TodoFormData>) => {
+      if (!user) return;
+
+      const updateData: Record<string, unknown> = {};
+      if (data.title !== undefined) updateData.title = data.title.trim();
+      if (data.description !== undefined && data.description.trim()) {
+        updateData.description = data.description.trim();
+      }
+      if (data.priority !== undefined) updateData.priority = data.priority;
+      if (data.tags !== undefined) updateData.tags = data.tags;
+      if (data.dueDate !== undefined && data.dueDate) {
+        updateData.dueDate = data.dueDate;
+      }
+
+      const todoRef = doc(db, 'users', user.uid, 'todos', id);
+      await setDoc(todoRef, updateData, { merge: true });
+    },
+    [user]
+  );
+
+  const deleteTodo = useCallback(
+    async (id: string) => {
+      if (!user) return;
+
+      const todoRef = doc(db, 'users', user.uid, 'todos', id);
+      await deleteDoc(todoRef);
+    },
+    [user]
+  );
+
+  const setTodoStatus = useCallback(
+    async (id: string, status: TodoStatus) => {
+      if (!user) return;
+
+      const todoRef = doc(db, 'users', user.uid, 'todos', id);
+      await setDoc(todoRef, { status }, { merge: true });
+    },
+    [user]
+  );
+
+  const clearCompleted = useCallback(async () => {
+    if (!user) return;
+
+    const completedTodos = state.todos.filter(
+      (todo) => todo.status === 'completed'
+    );
+    await Promise.all(
+      completedTodos.map((todo) =>
+        deleteDoc(doc(db, 'users', user.uid, 'todos', todo.id))
+      )
+    );
+  }, [user, state.todos]);
 
   const setFilterStatus = useCallback((status: FilterStatus) => {
     dispatch({ type: 'SET_FILTER_STATUS', payload: status });
@@ -259,14 +322,11 @@ export function TodoProvider({ children }: TodoProviderProps) {
     dispatch({ type: 'SET_SORT', payload: { sortBy, sortOrder } });
   }, []);
 
-  const clearCompleted = useCallback(() => {
-    dispatch({ type: 'CLEAR_COMPLETED' });
-  }, []);
-
   const value = useMemo(
     () => ({
       todos: state.todos,
       filters: state.filters,
+      loading,
       addTodo,
       updateTodo,
       deleteTodo,
@@ -281,6 +341,7 @@ export function TodoProvider({ children }: TodoProviderProps) {
     [
       state.todos,
       state.filters,
+      loading,
       addTodo,
       updateTodo,
       deleteTodo,

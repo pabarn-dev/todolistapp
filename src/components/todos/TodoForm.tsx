@@ -8,9 +8,9 @@ import type { Priority, TodoFormData, ValidationErrors } from '../../types';
 import styles from './TodoForm.module.css';
 
 const priorityOptions = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
+  { value: 'low', label: 'Basse' },
+  { value: 'medium', label: 'Moyenne' },
+  { value: 'high', label: 'Haute' },
 ];
 
 const initialFormData: TodoFormData = {
@@ -30,10 +30,9 @@ export function TodoForm({ onSuccess }: TodoFormProps) {
   const [formData, setFormData] = useState<TodoFormData>(initialFormData);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [tagInput, setTagInput] = useState('');
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleSubmit = useCallback(
-    (e: FormEvent) => {
+    async (e: FormEvent) => {
       e.preventDefault();
 
       const validationErrors = validateTodoForm(formData);
@@ -43,10 +42,9 @@ export function TodoForm({ onSuccess }: TodoFormProps) {
         return;
       }
 
-      addTodo(formData);
+      await addTodo(formData);
       setFormData(initialFormData);
       setTagInput('');
-      setIsExpanded(false);
       onSuccess?.();
     },
     [formData, addTodo, onSuccess]
@@ -84,105 +82,99 @@ export function TodoForm({ onSuccess }: TodoFormProps) {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
-      <div className={styles.mainRow}>
-        <Input
-          placeholder="What needs to be done?"
-          value={formData.title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          onFocus={() => setIsExpanded(true)}
-          error={errors.title}
-          fullWidth
-          aria-label="Todo title"
-        />
-        <Button type="submit">Add</Button>
+      <h2 className={styles.formTitle}>Nouvelle tâche</h2>
+
+      <div className={styles.formGrid}>
+        <div className={styles.mainFields}>
+          <Input
+            label="Titre"
+            placeholder="Que devez-vous faire ?"
+            value={formData.title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            error={errors.title}
+            fullWidth
+            aria-label="Titre de la tâche"
+          />
+
+          <Input
+            label="Description"
+            placeholder="Ajouter des détails..."
+            value={formData.description}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                description: e.target.value,
+              }))
+            }
+            fullWidth
+          />
+        </div>
+
+        <div className={styles.sideFields}>
+          <Select
+            label="Priorité"
+            options={priorityOptions}
+            value={formData.priority}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                priority: e.target.value as Priority,
+              }))
+            }
+            fullWidth
+          />
+
+          <Input
+            label="Date d'échéance"
+            type="date"
+            value={formData.dueDate}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, dueDate: e.target.value }))
+            }
+            error={errors.dueDate}
+            fullWidth
+          />
+        </div>
       </div>
 
-      {isExpanded && (
-        <div className={styles.expandedSection}>
-          <div className={styles.row}>
-            <Input
-              label="Description"
-              placeholder="Add more details..."
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              fullWidth
-            />
-          </div>
-
-          <div className={styles.row}>
-            <Select
-              label="Priority"
-              options={priorityOptions}
-              value={formData.priority}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  priority: e.target.value as Priority,
-                }))
-              }
-            />
-
-            <Input
-              label="Due Date"
-              type="date"
-              value={formData.dueDate}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, dueDate: e.target.value }))
-              }
-              error={errors.dueDate}
-            />
-          </div>
-
-          <div className={styles.tagsSection}>
-            <div className={styles.tagInput}>
-              <Input
-                label="Tags"
-                placeholder="Add a tag..."
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagKeyDown}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleAddTag}
-              >
-                Add Tag
-              </Button>
-            </div>
-
-            {formData.tags.length > 0 && (
-              <div className={styles.tagList}>
-                {formData.tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="primary"
-                    removable
-                    onRemove={() => handleRemoveTag(tag)}
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
+      <div className={styles.tagsSection}>
+        <div className={styles.tagInput}>
+          <Input
+            label="Tags"
+            placeholder="Ajouter un tag..."
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+          />
           <Button
             type="button"
-            variant="ghost"
+            variant="secondary"
             size="sm"
-            onClick={() => setIsExpanded(false)}
+            onClick={handleAddTag}
           >
-            Collapse
+            +
           </Button>
         </div>
-      )}
+
+        {formData.tags.length > 0 && (
+          <div className={styles.tagList}>
+            {formData.tags.map((tag) => (
+              <Badge
+                key={tag}
+                variant="primary"
+                removable
+                onRemove={() => handleRemoveTag(tag)}
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Button type="submit" fullWidth>
+        Ajouter la tâche
+      </Button>
     </form>
   );
 }

@@ -1,8 +1,49 @@
 // src/App.tsx
 
-import { TodoProvider, ThemeProvider } from './context';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, TodoProvider, ThemeProvider } from './context';
+import { useAuth } from './hooks';
 import { Layout, TodoForm, TodoSearch, TodoFilters, TodoStats, TodoList } from './components';
+import { LoginPage, RegisterPage, AdminPage } from './pages';
 import styles from './App.module.css';
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner} />
+        <p>Chargement...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner} />
+        <p>Chargement...</p>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/" />;
+  }
+
+  return <>{children}</>;
+}
 
 function TodoApp() {
   return (
@@ -47,12 +88,55 @@ function TodoApp() {
   );
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <PrivateRoute>
+            <AdminPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <TodoProvider>
+              <TodoApp />
+            </TodoProvider>
+          </PrivateRoute>
+        }
+      />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <TodoProvider>
-        <TodoApp />
-      </TodoProvider>
-    </ThemeProvider>
+    <BrowserRouter>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   );
 }

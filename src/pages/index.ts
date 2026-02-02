@@ -1,0 +1,5 @@
+// src/pages/index.ts
+
+export { LoginPage } from './LoginPage';
+export { RegisterPage } from './RegisterPage';
+export { AdminPage } from './AdminPage';
