@@ -1,0 +1,65 @@
+/* src/styles/variables.css */
+
+:root {
+  /* Colors - Light Mode */
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-alpha: rgba(99, 102, 241, 0.15);
+
+  --color-success: #22c55e;
+  --color-success-alpha: rgba(34, 197, 94, 0.15);
+
+  --color-warning: #f59e0b;
+  --color-warning-alpha: rgba(245, 158, 11, 0.15);
+
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-alpha: rgba(239, 68, 68, 0.15);
+
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --color-primary: #818cf8;
+  --color-primary-hover: #a5b4fc;
+  --color-primary-alpha: rgba(129, 140, 248, 0.2);
+
+  --color-success: #4ade80;
+  --color-success-alpha: rgba(74, 222, 128, 0.2);
+
+  --color-warning: #fbbf24;
+  --color-warning-alpha: rgba(251, 191, 36, 0.2);
+
+  --color-danger: #f87171;
+  --color-danger-hover: #fca5a5;
+  --color-danger-alpha: rgba(248, 113, 113, 0.2);
+
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-hover: #334155;
+
+  --color-border: #334155;
+  --color-border-hover: #475569;
+
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+}

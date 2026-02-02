@@ -1,0 +1,73 @@
+/* src/components/common/Badge.module.css */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  transform: scale(1.05);
+}
+
+.clickable:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Variants */
+.default {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+.primary {
+  background: var(--color-primary-alpha);
+  color: var(--color-primary);
+}
+
+.success {
+  background: var(--color-success-alpha);
+  color: var(--color-success);
+}
+
+.warning {
+  background: var(--color-warning-alpha);
+  color: var(--color-warning);
+}
+
+.danger {
+  background: var(--color-danger-alpha);
+  color: var(--color-danger);
+}
+
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  margin-left: 0.125rem;
+  font-size: 1rem;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.removeButton:hover {
+  opacity: 1;
+}
