@@ -1,96 +1,53 @@
-// src/App.tsx
-
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, TodoProvider, ThemeProvider } from './context';
-import { useAuth } from './hooks';
-import { Layout, TodoForm, TodoSearch, TodoFilters, TodoStats, TodoList } from './components';
-import { LoginPage, RegisterPage, AdminPage } from './pages';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './features/auth';
+import { LoginPage, RegisterPage } from './features/auth';
+import { OrganizationsPage, CreateOrganizationPage } from './features/organizations';
+import { ProjectsPage, CreateProjectPage } from './features/projects';
+import { TaskBoardPage } from './features/tasks';
+import { AppLayout } from './layouts/AppLayout';
 import styles from './App.module.css';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+function LoadingScreen() {
+  return (
+    <div className={styles.loadingContainer}>
+      <div className={styles.spinner} />
+      <p>Loading...</p>
+    </div>
+  );
+}
 
-  if (loading) {
-    return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.spinner} />
-        <p>Chargement...</p>
-      </div>
-    );
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
-  if (!user) {
-    return <Navigate to="/login" />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.spinner} />
-        <p>Chargement...</p>
-      </div>
-    );
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
-  if (user) {
-    return <Navigate to="/" />;
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
 
-function TodoApp() {
-  return (
-    <Layout>
-      <div className={styles.container}>
-        <section className={styles.section} aria-labelledby="add-todo-heading">
-          <h2 id="add-todo-heading" className={styles.srOnly}>
-            Add new todo
-          </h2>
-          <TodoForm />
-        </section>
-
-        <section className={styles.section} aria-labelledby="search-heading">
-          <h2 id="search-heading" className={styles.srOnly}>
-            Search todos
-          </h2>
-          <TodoSearch />
-        </section>
-
-        <section className={styles.section} aria-labelledby="stats-heading">
-          <h2 id="stats-heading" className={styles.srOnly}>
-            Statistics
-          </h2>
-          <TodoStats />
-        </section>
-
-        <section className={styles.section} aria-labelledby="filters-heading">
-          <h2 id="filters-heading" className={styles.srOnly}>
-            Filters
-          </h2>
-          <TodoFilters />
-        </section>
-
-        <section className={styles.section} aria-labelledby="todos-heading">
-          <h2 id="todos-heading" className={styles.srOnly}>
-            Todo list
-          </h2>
-          <TodoList />
-        </section>
-      </div>
-    </Layout>
-  );
-}
-
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public routes */}
       <Route
         path="/login"
         element={
@@ -107,36 +64,50 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
-      <Route
-        path="/admin"
-        element={
-          <PrivateRoute>
-            <AdminPage />
-          </PrivateRoute>
-        }
-      />
+
+      {/* Private routes */}
       <Route
         path="/"
         element={
           <PrivateRoute>
-            <TodoProvider>
-              <TodoApp />
-            </TodoProvider>
+            <OrganizationsPage />
           </PrivateRoute>
         }
       />
+      <Route
+        path="/new-organization"
+        element={
+          <PrivateRoute>
+            <CreateOrganizationPage />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Organization routes with layout */}
+      <Route
+        path="/:orgSlug"
+        element={
+          <PrivateRoute>
+            <AppLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<ProjectsPage />} />
+        <Route path="new-project" element={<CreateProjectPage />} />
+        <Route path=":projectSlug" element={<TaskBoardPage />} />
+        <Route path="settings" element={<div>Organization Settings (TODO)</div>} />
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 }
